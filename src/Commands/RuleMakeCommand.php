@@ -83,6 +83,6 @@ class RuleMakeCommand extends GeneratorCommand
      */
     private function getFileName()
     {
-        return basename(Str::studly($this->argument('name')));
+        return Str::studly($this->argument('name'));
     }
 }
