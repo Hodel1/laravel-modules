@@ -1,0 +1,5 @@
+
+    protected static function newFactory()
+    {
+        return \$MODULE_NAMESPACE$\$MODULE$\Database\factories\$NAME$Factory::new();
+    }

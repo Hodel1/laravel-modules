@@ -448,36 +448,13 @@ class ModuleGenerator extends Generator
             if (in_array('PROVIDER_NAMESPACE', $keys, true) === false) {
                 $keys[] = 'PROVIDER_NAMESPACE';
             }
-
-            if (in_array('STUDLY_NAME_WITH_BACKSLASHES', $keys, true) === false) {
-                $keys[] = 'STUDLY_NAME_WITH_BACKSLASHES';
-            }
-
-            if (in_array('BASE_NAME', $keys, true) === false) {
-                $keys[] = 'BASE_NAME';
-            }
         }
-
         foreach ($keys as $key) {
             if (method_exists($this, $method = 'get' . ucfirst(Str::studly(strtolower($key))) . 'Replacement')) {
                 $replaces[$key] = $this->$method();
             } else {
-                switch($key) {
-                    case 'STUDLY_NAME_WITH_BACKSLASHES':
-                        $replaces[$key] = $this->getStudlyNameReplacement(true);
-                        break;
-                    case 'BASE_NAME':
-                        $replaces[$key] = basename($this->getName());
-                        break;
-                    default:
-                        $replaces[$key] = null;
-                        break;
-                }
+                $replaces[$key] = null;
             }
-        }
-
-        if ($stub == 'views/index' && isset($replaces['LOWER_NAME'])) {
-            $replaces['LOWER_NAME'] = basename($replaces['LOWER_NAME']);
         }
 
         return $replaces;
@@ -509,10 +486,9 @@ class ModuleGenerator extends Generator
 
         $content = $this->filesystem->get($path);
         $namespace = $this->getModuleNamespaceReplacement();
-        $studlyName = $this->getStudlyNameReplacement(true);
+        $studlyName = $this->getStudlyNameReplacement();
 
         $provider = '"' . $namespace . '\\\\' . $studlyName . '\\\\Providers\\\\' . $studlyName . 'ServiceProvider"';
-        $provider = str_replace('\\\\\\\\', '\\\\', $provider);
 
         $content = str_replace($provider, '', $content);
 
@@ -534,13 +510,9 @@ class ModuleGenerator extends Generator
      *
      * @return string
      */
-    protected function getStudlyNameReplacement($slashToBackslash=false)
+    protected function getStudlyNameReplacement()
     {
-        if (!$slashToBackslash) {
-            return $this->getName();
-        }
-
-        return str_replace('\\\\\\\\', '\\\\', str_replace('/', '\\\\', $this->getName()));
+        return $this->getName();
     }
 
     /**

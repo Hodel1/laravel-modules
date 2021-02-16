@@ -77,7 +77,7 @@ class FactoryMakeCommand extends GeneratorCommand
      */
     private function getFileName()
     {
-        return basename(Str::studly($this->argument('name')) . 'Factory.php');
+        return Str::studly($this->argument('name')) . 'Factory.php';
     }
 
     /**
@@ -107,8 +107,78 @@ class FactoryMakeCommand extends GeneratorCommand
      */
     public function getModelNamespace(): string
     {
-        return str_replace('/', '\\',
-            $this->laravel['modules']->config('namespace') . '\\' . $this->laravel['modules']->findOrFail($this->getModuleName()) . '\\' . $this->laravel['modules']->config('paths.generator.model.path', 'Entities')
+        return $this->laravel['modules']->config('namespace') . '\\' . $this->laravel['modules']->findOrFail($this->getModuleName()) . '\\' . $this->laravel['modules']->config('paths.generator.model.path', 'Entities');
+    }
+
+    /**
+     * Override default handle to import factory usage in Model
+     *
+     * @return int
+     */
+    public function handle(): int
+    {
+        $handle = parent::handle();
+
+        $modelFile = base_path(
+            sprintf('%s/%s.php',
+                str_replace('\\', '/', $this->getModelNamespace()),
+                $this->getModelName()
+            )
         );
+
+        if (file_exists($modelFile)) {
+            $content = file_get_contents($modelFile);
+            if (!strstr($content, 'protected static function newFactory()')) {
+                $patternInnerClass = '/\;.*class.*\{(?<class>.*?)\}/is';
+                $patternUsedClasses = '/namespace.*?\;(?<uses>.*\;).*class.*\{.*\}/s';
+                $patternDeclaredUses = '/^(\W+)use (?<uses>.*?)\;/is';
+
+                preg_match($patternInnerClass, $content, $matchesInnerClass);
+                preg_match($patternUsedClasses, $content, $matchesUsedClasses);
+
+                $contentInnerClass = $matchesInnerClass['class'];
+                $contentUsedClasses = $matchesUsedClasses['uses'];
+
+                preg_match($patternDeclaredUses, $contentInnerClass, $matchesDeclaredUses);
+
+                $contentDeclaredUses = $matchesDeclaredUses['uses'];
+
+                if (!strstr($contentUsedClasses, 'use Illuminate\Database\Eloquent\Factories\HasFactory;')) {
+                    $contentUsedClasses .= '\nuse Illuminate\Database\Eloquent\Factories\HasFactory;\n';
+                }
+
+                $useIsDeclaredInClass = false;
+                if (empty($contentDeclaredUses)) {
+                    $contentDeclaredUses = '    use HasFactory;';
+                } else {
+                    if (!strstr($contentDeclaredUses, 'HasFactory')) {
+                        $contentDeclaredUses .= ', HasFactory';
+                    }
+                    $contentDeclaredUses = '    use ' . $contentDeclaredUses . ';';
+                    $useIsDeclaredInClass = true;
+                }
+
+                $contentStub = (new Stub('/model-factory.stub', [
+                    'MODULE_NAMESPACE' => $this->laravel['modules']->config('namespace'),
+                    'MODULE' => $this->getModuleName(),
+                    'NAME' => $this->getModelName(),
+                ]))->render();
+
+                $contentInnerClass .= $contentStub;
+
+                if ($useIsDeclaredInClass) {
+                    $contentInnerClass = preg_replace($patternDeclaredUses, $contentDeclaredUses, $contentInnerClass);
+                } else {
+                    $contentInnerClass = $contentDeclaredUses . '\n' . $contentInnerClass;
+                }
+
+                $x = preg_replace('class.*\{(.*?)\}/is', $contentInnerClass, $content);
+                dump($x);
+
+            }
+
+        }
+
+        return $handle;
     }
 }
